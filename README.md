@@ -18,6 +18,9 @@ If stored as an unordered list on disk, checking for a duplicate (before inserti
 
 Accompanying data structures, such as a regular bloom filter could reduce the need for a full scan.
 
+Rateless IBLT also gives us the 'symmetric difference' between two sets. We want to be able to eliminate items we already have to get the list of items we need from another server. This may also requires a full scan of the list.
+Ignore that last bit, I just read the paper again and we do know which server is missing which items.
+
 ## Challenges for rapidly changing sets
 
 Considering the use-case of keeping an insert-only set in sync across multiple servers.
