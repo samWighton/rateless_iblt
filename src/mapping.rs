@@ -14,13 +14,15 @@ impl Iterator for RandomMapping {
         let r = self.prng;
 
         //2^32
-        let tp32 : f64 = (1u64 << 32) as f64;
+        let tp32: f64 = (1u64 << 32) as f64;
 
         // diff to next index
         let diff = (self.last_idx as f64 + 1.5) * (tp32 / (r as f64 + 1.0).sqrt() - 1.0);
+
+        let index_to_return = self.last_idx;
         self.last_idx += diff.ceil() as u64;
 
-        Some(self.last_idx)
+        Some(index_to_return)
     }
 }
 

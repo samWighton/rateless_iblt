@@ -1,10 +1,11 @@
 mod mapping;
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
-}
+mod symbol;
+mod encoder;
 
 //functionality that we are going to need:
-//- Function to produce a stream of coded symbols for a particular set
+//- Function that takes an iterable set as input, and produces a large block of coded symbols
+//- A higher level function that repeatedly calls the above function to produce a infinite stream
+//  of coded symbols
 //- Function that takes two lengths of coded symbols and determines if the peeling decoder can succeed
 //
 
@@ -32,12 +33,6 @@ mod tests {
         let below_100: Vec<u64> = rm.take_while(|&x| x <= 100).filter(|&x| x > 30).collect();
         println!("{:?}", below_100);
         assert!(true);
-    }
-
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
     }
 
     #[test]
@@ -75,4 +70,89 @@ mod tests {
         // let result = elements.iter().copied().fold(0, |acc, x| acc ^ x);
         // println!("The XOR of all elements is: {}", result);
     }
+
+    #[test]
+    fn test_symbol() {
+        use std::hash::{Hash, Hasher, DefaultHasher};
+        use symbol::Symbol;
+
+        // Example implementation for a simple Symbol
+        #[derive(Clone, Debug)]
+        struct SimpleSymbol {
+            value: u64,
+        }
+
+        // impl Hash for SimpleSymbol {
+        //     fn hash<H: Hasher>(&self, state: &mut H) {
+        //         self.value.hash(state);
+        //     }
+        // }
+
+        impl SimpleSymbol {
+            fn compute_hash(&self) -> u64 {
+                let mut hasher = DefaultHasher::new();
+                self.value.hash(&mut hasher);
+                hasher.finish()
+            }
+        }
+
+        impl symbol::Symbol for SimpleSymbol {
+            fn xor(&mut self, other: &Self) -> Self {
+                Self {
+                    value: self.value ^ other.value,
+                }
+            }
+            fn hash(&self) -> u64 {
+                self.compute_hash()
+            }
+            fn empty() -> Self {
+                SimpleSymbol { value: 0 }
+            }
+        }
+
+        let symbol1 = SimpleSymbol { value: 42 };
+        let symbol2 = SimpleSymbol { value: 100 };
+
+        let hash_symbol1 = symbol::HashedSymbol {
+            symbol: symbol1.clone(),
+            hash: symbol1.hash(),
+        };
+        let hash_symbol2 = symbol::HashedSymbol {
+            symbol: symbol2.clone(),
+            hash: symbol2.hash(),
+        };
+        let mut coded_symbol = symbol::CodedSymbol::new(); 
+
+        println!("0 is peelable {}", coded_symbol.is_peelable());
+        assert_eq!(coded_symbol.is_peelable(), false);
+
+        coded_symbol.apply(&hash_symbol1, symbol::Direction::Add);
+        println!("1 is peelable {}", coded_symbol.is_peelable());
+        assert_eq!(coded_symbol.is_peelable(), true);
+
+        coded_symbol.apply(&hash_symbol2, symbol::Direction::Add);
+        println!("2 is peelable {}", coded_symbol.is_peelable());
+        assert_eq!(coded_symbol.is_peelable(), false);
+
+        coded_symbol.apply(&hash_symbol1, symbol::Direction::Remove);
+        println!("3 is peelable {}", coded_symbol.is_peelable());
+        assert_eq!(coded_symbol.is_peelable(), true);
+
+        println!("CodedSymbol: {:?}", coded_symbol);
+
+        let peeled_symbol = coded_symbol.peel();
+        match peeled_symbol {
+            Some(symbol) => {
+                println!("Peeled Symbol: {:?}", symbol);
+                assert_eq!(symbol.value, hash_symbol2.symbol.value);
+            }
+            None => {
+                println!("No symbol to peel");
+                assert!(false);
+            }
+        }
+
+        assert!(false);
+    }
 }
+
