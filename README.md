@@ -13,15 +13,13 @@ I intend to include additional functionality to help with cases where the sets a
 By their definition, Sets can't have duplicates.
 When storing a set in memory in rust, a hashset or BTreeSet can be used.
 However, when the set is very large, the memory requirements can be prohibitive.
-Insertion when an element already exists is a no-op.
-If stored as an unordered list on disk, checking for a duplicate (before insertion) requires a full scan of the list.
+
+By definition, insertion when an element already exists is a no-op.
+Enforcing this behaviour if the set is stored as an unordered list on disk, checking for a duplicate (before insertion) requires a full scan of the list.
 
 Accompanying data structures, such as a regular bloom filter could reduce the need for a full scan.
 If the entry is not in the bloom filter, it known to not yet be in the set, so we can insert/append it safely.
 If the entry is in the bloom filter, it might be in the set, so we will need to do a full scan.
-
-Rateless IBLT also gives us the 'symmetric difference' between two sets. We want to be able to eliminate items we already have to get the list of items we need from another server. This may also requires a full scan of the list.
-Ignore that last bit, I just read the paper again and we do know which server is missing which items.
 
 ## Challenges for rapidly changing sets
 
@@ -44,4 +42,17 @@ Every server could compute the Rateless IBLT on the minute, every minute for all
 Servers could share the coded symbols from the Rateless IBLT to a number of other servers. With this information, the servers could begin requesting missing items.
 
 The repair mechanism would also handle cases of a network partition. Rateless IBLT would then be used to efficiently reconcile the differences.
+
+## Interface presented by the crate
+
+- Create a CodedSymbols structure from a iterable set
+- Create a CodedSymbols structure from a network stream
+- Create an empty CodedSymbols structure 
+- Add an item to the CodedSymbols structure
+- Remove an item from the CodedSymbols structure
+- Combine two CodedSymbols structures (that were built from distinct sets)
+- Collapse a local and remote CodedSymbols structure together
+- Get a particular length (with optional offset) of CodedSymbols (to send over the network)
+- Iterate to 'peel' off Symbols
+- dry-run to check if we can peel to an empty set, this let's us know if we have received enough of a remote stream of CodedSymbols
 

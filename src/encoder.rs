@@ -9,6 +9,25 @@ use crate::symbol;
 // It might make sense to set a BLOCK_SIZE that is inversly proportional to size of the Symbol
 pub const BLOCK_SIZE: u64 = 20;
 
+// it might be nice to have a wrapper struct for a Vec or stream of coded symbols
+// functions could be implemented on this struct to peel symbols out
+// functions could also be written to extend the codedSymbols
+// This would require storing the iterable set that was used to generate the coded symbols
+
+// struct PeelableBlock<T> 
+// where T: symbol::Symbol {
+//     data: Vec<symbol::CodedSymbol<T>>,
+// }
+// 
+// impl<T: symbol::Symbol> Iterator for PeelableBlock<T> {
+//     type Item = T;
+// 
+//     fn next(&mut self) -> Option<Self::Item> {
+//         //TODO
+//         None
+//     }
+// }
+
 // a function that takes a set that can be iterted over and an offset and returns a block of coded symbols
 
 pub fn produce_block<T, I>(iterable: I, offset: u64) -> Vec<symbol::CodedSymbol<T>>
