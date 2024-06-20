@@ -17,6 +17,8 @@ Insertion when an element already exists is a no-op.
 If stored as an unordered list on disk, checking for a duplicate (before insertion) requires a full scan of the list.
 
 Accompanying data structures, such as a regular bloom filter could reduce the need for a full scan.
+If the entry is not in the bloom filter, it known to not yet be in the set, so we can insert/append it safely.
+If the entry is in the bloom filter, it might be in the set, so we will need to do a full scan.
 
 Rateless IBLT also gives us the 'symmetric difference' between two sets. We want to be able to eliminate items we already have to get the list of items we need from another server. This may also requires a full scan of the list.
 Ignore that last bit, I just read the paper again and we do know which server is missing which items.

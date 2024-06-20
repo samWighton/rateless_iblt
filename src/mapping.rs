@@ -1,4 +1,5 @@
 use std::f64;
+use crate::symbol::Symbol;
 
 pub struct RandomMapping {
     prng: u64,
@@ -27,7 +28,8 @@ impl Iterator for RandomMapping {
 }
 
 impl RandomMapping {
-    pub fn new(prng: u64) -> Self {
+    pub fn new<T: Symbol>(given_symbol: &T) -> Self {
+        let prng = given_symbol.hash_();
         RandomMapping { prng, last_idx: 0 }
     }
 }

@@ -2,5 +2,6 @@
 name = "rateless_iblt"
 version = "0.1.0"
 edition = "2021"
+authors = ["Sam Wighton"]
 
 [dependencies]
