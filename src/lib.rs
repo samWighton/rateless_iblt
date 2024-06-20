@@ -134,6 +134,49 @@ mod tests {
     }
 
     #[test]
+    fn test_peeling() {
+
+        use std::collections::HashSet;
+
+        let items: HashSet<SimpleSymbol> = HashSet::from([
+            SimpleSymbol { value: 7 },
+            SimpleSymbol { value: 15 },
+            SimpleSymbol { value: 16 },
+        ]);
+
+        let items2: HashSet<SimpleSymbol> = HashSet::from([
+            SimpleSymbol { value: 7 },
+            SimpleSymbol { value: 15 },
+            SimpleSymbol { value: 16 },
+            SimpleSymbol { value: 1 },
+        ]);
+
+        let mut coded_symbol_block = encoder::produce_block(items.clone(), 0);
+
+        loop {
+            let peeled_symbol = encoder::peel_one_symbol(&mut coded_symbol_block);
+            match peeled_symbol {
+                symbol::PeelableResult::Local(symbol) => {
+                    println!("Peeled Local Symbol: {:?}", symbol);
+                }
+                symbol::PeelableResult::Remote(symbol) => {
+                    println!("Peeled Remote Symbol: {:?}", symbol);
+                }
+                symbol::PeelableResult::NotPeelable => {
+                    println!("No symbol to peel");
+                    break;
+                }
+            }
+            
+        }
+
+        assert!(encoder::is_empty(&coded_symbol_block));
+
+        // assert!(false);
+
+    }
+
+    #[test]
     fn test_symbol() {
         use symbol::Symbol;
 

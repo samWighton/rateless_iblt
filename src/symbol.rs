@@ -76,6 +76,7 @@ impl<T: Symbol> CodedSymbol<T> {
 // by this convention, when peeling, codedSymbols with a count of 1 are present only locally
 // and codedSymbols with a count of -1 were present only in the remote set
 
+#[derive(PartialEq, Eq, Clone)]
 pub enum PeelableResult<T: Symbol> {
     Local(T),
     Remote(T),
@@ -156,5 +157,17 @@ impl<T: Symbol> CodedSymbol<T> {
             return return_result;
         }
         PeelableResult::NotPeelable
+    }
+    pub fn is_empty(&self) -> bool {
+        // if self.symbol != T::empty() {
+        //     return false;
+        // }
+        if self.count != 0 {
+            return false;
+        }
+        if self.hash != 0 {
+            return false;
+        }
+        true
     }
 }

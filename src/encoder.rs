@@ -40,8 +40,32 @@ where
     return block;
 }
 
+pub fn peel_one_symbol<T: symbol::Symbol>( block: &mut Vec<symbol::CodedSymbol<T>>) -> symbol::PeelableResult<T> {
+
+    if block.is_empty() {
+        return symbol::PeelableResult::NotPeelable;
+    }
+    let mut peelable_result = symbol::PeelableResult::NotPeelable;
+
+    // we check if each codedSymbol can be peeled,
+    // if it can, we exit the loop, remove it from the block and return the result
+    for symbol in block.iter() {
+        peelable_result = symbol.peel_peek();
+
+        match peelable_result {
+            symbol::PeelableResult::NotPeelable => { continue }
+            _ => { 
+                remove_symbol_from_block(block, peelable_result.clone());
+                break 
+            }
+        }
+    }
+
+    peelable_result
+}
+
 pub fn remove_symbol_from_block<T: symbol::Symbol>(
-    mut block: Vec<symbol::CodedSymbol<T>>,
+    block: &mut Vec<symbol::CodedSymbol<T>>,
     symbol_result: symbol::PeelableResult<T>,
 ) {
     let direction;
@@ -95,6 +119,10 @@ pub fn collapse<T: symbol::Symbol>(
         combined_block.push(coded_symbol_local.collapse(coded_symbol_remote));
     }
     combined_block
+}
+
+pub fn is_empty<T: symbol::Symbol>( block: &Vec<symbol::CodedSymbol<T>>) -> bool {
+    block.iter().all(|x| x.is_empty())
 }
 
 // pub fn invert_count<T: symbol::Symbol>(block: Vec<symbol::CodedSymbol<T>>) {
