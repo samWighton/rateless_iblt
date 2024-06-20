@@ -10,7 +10,6 @@
 use std::fmt::Debug;
 
 pub trait Symbol: Clone + Debug {
-
     // const BYTE_ARRAY_LENGTH: usize;
     // fn encode_to_bytes(&self) -> [u8; Self::BYTE_ARRAY_LENGTH];
     // fn decode_from_bytes(bytes: &[u8; Self::BYTE_ARRAY_LENGTH]) -> Self;
@@ -62,10 +61,13 @@ impl<T: Symbol> CodedSymbol<T> {
         let symbol = T::empty();
         let hash = 0;
         let count = 0;
-        CodedSymbol { symbol, hash, count}
+        CodedSymbol {
+            symbol,
+            hash,
+            count,
+        }
     }
 }
-
 
 // pub const ADD: i64 = 1;
 // pub const REMOVE: i64 = -1;
@@ -73,7 +75,6 @@ impl<T: Symbol> CodedSymbol<T> {
 // We shall set the 'count' to negative for IBLT with a remote origin
 // by this convention, when peeling, codedSymbols with a count of 1 are present only locally
 // and codedSymbols with a count of -1 were present only in the remote set
-//
 
 pub enum PeelableResult<T: Symbol> {
     Local(T),
@@ -121,7 +122,7 @@ impl<T: Symbol> CodedSymbol<T> {
     }
 
     // this does not modify the CodedSymbol
-    pub fn is_peelable(&self) -> bool{
+    pub fn is_peelable(&self) -> bool {
         if self.count == 1 || self.count == -1 {
             if self.hash == self.symbol.hash_() {
                 return true;
@@ -132,8 +133,7 @@ impl<T: Symbol> CodedSymbol<T> {
 
     pub fn peel(&mut self) -> PeelableResult<T> {
         if self.is_peelable() {
-            let return_result = 
-            if self.count == 1 {
+            let return_result = if self.count == 1 {
                 PeelableResult::Local(self.symbol.clone())
             } else {
                 PeelableResult::Remote(self.symbol.clone())
@@ -147,8 +147,7 @@ impl<T: Symbol> CodedSymbol<T> {
     // same as peel, but does not modify the CodedSymbol
     pub fn peel_peek(&self) -> PeelableResult<T> {
         if self.is_peelable() {
-            let return_result = 
-            if self.count == 1 {
+            let return_result = if self.count == 1 {
                 PeelableResult::Local(self.symbol.clone())
             } else {
                 PeelableResult::Remote(self.symbol.clone())
@@ -159,4 +158,3 @@ impl<T: Symbol> CodedSymbol<T> {
         PeelableResult::NotPeelable
     }
 }
-

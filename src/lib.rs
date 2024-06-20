@@ -1,6 +1,6 @@
+mod encoder;
 mod mapping;
 mod symbol;
-mod encoder;
 
 //functionality that we are going to need:
 //- Function that takes an iterable set as input, and produces a large block of coded symbols
@@ -11,14 +11,14 @@ mod encoder;
 //
 
 // Re-export items from your modules
-pub use symbol::{Symbol};
 pub use encoder::produce_block;
+pub use symbol::Symbol;
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::collections::HashSet;
-    use std::hash::{Hash, Hasher, DefaultHasher};
+    use std::hash::{DefaultHasher, Hash, Hasher};
 
     // Example implementation of a struct that implements the Symbol trait
     #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -44,18 +44,17 @@ mod tests {
 
     #[test]
     fn test_mapping() {
-
-        let rm = mapping::RandomMapping::new( &SimpleSymbol { value: 1 });
+        let rm = mapping::RandomMapping::new(&SimpleSymbol { value: 1 });
 
         for index in rm.take(10) {
             println!("{}", index);
         }
-        let rm = mapping::RandomMapping::new( &SimpleSymbol { value: 2 });
+        let rm = mapping::RandomMapping::new(&SimpleSymbol { value: 2 });
         for index in rm.take(10) {
             println!("{}", index);
         }
 
-        let rm = mapping::RandomMapping::new( &SimpleSymbol { value: 2 });
+        let rm = mapping::RandomMapping::new(&SimpleSymbol { value: 2 });
 
         //combining take_while and filter can give us the indexes that land in a range
         //helpful if we are computing the coded symbols in a block
@@ -64,25 +63,22 @@ mod tests {
         // assert!(false);
     }
 
-
     #[test]
     fn test_encoder() {
         use std::collections::HashSet;
 
-        let items: HashSet<SimpleSymbol> = HashSet::from(
-            [
+        let items: HashSet<SimpleSymbol> = HashSet::from([
             SimpleSymbol { value: 7 },
             SimpleSymbol { value: 15 },
             SimpleSymbol { value: 16 },
-            ]);
+        ]);
 
-        let items2: HashSet<SimpleSymbol> = HashSet::from(
-            [
+        let items2: HashSet<SimpleSymbol> = HashSet::from([
             SimpleSymbol { value: 7 },
             SimpleSymbol { value: 15 },
             SimpleSymbol { value: 16 },
             SimpleSymbol { value: 1 },
-            ]);
+        ]);
 
         let coded_symbol_block = encoder::produce_block(items.clone(), 0);
         let coded_symbol_block2 = encoder::produce_block(items2.clone(), 0);
@@ -152,7 +148,7 @@ mod tests {
             symbol: symbol2.clone(),
             hash: symbol2.hash_(),
         };
-        let mut coded_symbol = symbol::CodedSymbol::new(); 
+        let mut coded_symbol = symbol::CodedSymbol::new();
 
         println!("0 is peelable {}", coded_symbol.is_peelable());
         assert_eq!(coded_symbol.is_peelable(), false);
@@ -190,4 +186,3 @@ mod tests {
         // assert!(false);
     }
 }
-

@@ -1,5 +1,5 @@
-use std::f64;
 use crate::symbol::Symbol;
+use std::f64;
 
 pub struct RandomMapping {
     prng: u64,
