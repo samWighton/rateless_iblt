@@ -54,5 +54,10 @@ The repair mechanism would also handle cases of a network partition. Rateless IB
 - Collapse a local and remote CodedSymbols structure together
 - Get a particular length (with optional offset) of CodedSymbols (to send over the network)
 - Iterate to 'peel' off Symbols
-- dry-run to check if we can peel to an empty set, this let's us know if we have received enough of a remote stream of CodedSymbols
+- Dry-run to check if we can peel to an empty set, this let's us know if we have received enough of a remote stream of CodedSymbols
+
+If the struct stores a reference to the iterable set, we probably want a mechanism to check if the set has changed.
+We want this because if we are computing a block of CodedSymbols at a time, we iterate over the set once per block generated.
+If the set changes, we need to regenerate all the codedSymbols again.
+This could be as simple as ensuring the 0th index codedSymbol matches
 

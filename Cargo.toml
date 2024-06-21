@@ -1,7 +1,12 @@
 [package]
-name = "rateless_iblt"
+name = "riblt"
 version = "0.1.0"
 edition = "2021"
 authors = ["Sam Wighton"]
+
+[[example]]
+name = "basic_usage"
+path = "examples/basic_usage.rs"
+
 
 [dependencies]

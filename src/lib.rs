@@ -11,7 +11,7 @@ mod symbol;
 //
 
 // Re-export items from your modules
-pub use encoder::produce_block;
+pub use encoder::{produce_block, collapse, is_empty};
 pub use symbol::Symbol;
 
 #[cfg(test)]

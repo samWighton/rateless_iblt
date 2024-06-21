@@ -3,5 +3,5 @@
 version = 3
 
 [[package]]
-name = "rateless_iblt"
+name = "riblt"
 version = "0.1.0"
