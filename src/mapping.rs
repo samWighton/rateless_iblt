@@ -7,10 +7,10 @@ pub struct RandomMapping {
 }
 
 impl Iterator for RandomMapping {
-    type Item = u64;
+    type Item = usize;
 
     // Update the pseudo random state and calculate the next index.
-    fn next(&mut self) -> Option<u64> {
+    fn next(&mut self) -> Option<usize> {
         self.prng = self.prng.wrapping_mul(0xda942042e4dd58b5);
         let r = self.prng;
 
@@ -23,7 +23,7 @@ impl Iterator for RandomMapping {
         let index_to_return = self.last_idx;
         self.last_idx += diff.ceil() as u64;
 
-        Some(index_to_return)
+        Some(index_to_return as usize)
     }
 }
 

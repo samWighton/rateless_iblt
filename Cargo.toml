@@ -10,3 +10,6 @@ path = "examples/basic_usage.rs"
 
 
 [dependencies]
+
+[dev-dependencies]
+bincode = "1.3.3"

@@ -7,36 +7,125 @@ use crate::symbol;
 // be generating CodedSymbols that are not used
 //
 // It might make sense to set a BLOCK_SIZE that is inversly proportional to size of the Symbol
-pub const BLOCK_SIZE: u64 = 20;
+pub const BLOCK_SIZE: usize = 20;
 
-// it might be nice to have a wrapper struct for a Vec or stream of coded symbols
-// functions could be implemented on this struct to peel symbols out
-// functions could also be written to extend the codedSymbols
-// This would require storing the iterable set that was used to generate the coded symbols
+// There is a managed and unmanaged version of the RatelessIBLT
+// It is expected that the managed version will be used when we have access to the set
+// The managed version will generate coded symbols as needed (for efficiencey, it will generate a 'block' of coded symbols at a time)
+// The unmanaged version will be used whereever we don't have access to the set
 
-// struct PeelableBlock<T> 
-// where T: symbol::Symbol {
-//     data: Vec<symbol::CodedSymbol<T>>,
-// }
-// 
-// impl<T: symbol::Symbol> Iterator for PeelableBlock<T> {
-//     type Item = T;
-// 
-//     fn next(&mut self) -> Option<Self::Item> {
-//         //TODO
-//         None
-//     }
-// }
+pub struct RatelessIBLT<T, I>
+where
+    T: symbol::Symbol,
+    I: IntoIterator<Item = T> + Clone,
+{
+    pub coded_symbols: Vec<symbol::CodedSymbol<T>>,
+    set_iterator: I,
+}
+
+impl<T, I> Iterator for RatelessIBLT<T, I>
+where
+    T: symbol::Symbol,
+    I: IntoIterator<Item = T> + Clone,
+{
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        //TODO
+        None
+    }
+}
+impl<T, I> RatelessIBLT<T, I>
+where
+    T: symbol::Symbol,
+    I: IntoIterator<Item = T> + Clone,
+{
+    pub fn extend_coded_symbols(&mut self, index: usize) {
+        // extend the coded symbols so that we can access the coded symbol at index
+        // if the index is within the current length of the coded_symbols, we do nothing
+        // we should generate at minimum the BLOCK_SIZE number of coded symbols
+        let current_len = self.coded_symbols.len();
+        if index < current_len {
+            return;
+        }
+
+        let extend_until = usize::max(index + 1, current_len + BLOCK_SIZE);
+
+        for _ in current_len..extend_until {
+            println!("Extending coded symbols");
+            self.coded_symbols.push(symbol::CodedSymbol::new());
+        }
+
+        let cloned_set_iterator = self.set_iterator.clone();
+
+        for item in cloned_set_iterator.into_iter() {
+            // println!("item {:?}", item);
+            let item_mapping = mapping::RandomMapping::new(&item);
+
+            for i in item_mapping
+                .take_while(|&x| x < extend_until)
+                    .filter(|&x| x >= current_len)
+                    {
+                        self.coded_symbols[i].apply(
+                            &item,
+                            symbol::Direction::Add,
+                            );
+                    }
+        }
+    }
+    pub fn get_coded_symbol(&mut self, index: usize) -> symbol::CodedSymbol<T> {
+        if index >= self.coded_symbols.len() {
+            self.extend_coded_symbols(index);
+        }
+        self.coded_symbols[index].clone()
+    }
+    pub fn new(set_iterator: I) -> Self {
+        RatelessIBLT {
+            coded_symbols: Vec::new(),
+            set_iterator,
+        }
+    }
+}
+
+struct UnmanagedRatelessIBLT<T>
+where
+    T: symbol::Symbol,
+{
+    coded_symbols: Vec<symbol::CodedSymbol<T>>,
+}
+
+impl<T> Iterator for UnmanagedRatelessIBLT<T>
+where
+    T: symbol::Symbol,
+{
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        //TODO
+        None
+    }
+}
+impl<T> UnmanagedRatelessIBLT<T>
+where
+    T: symbol::Symbol,
+{
+    //
+    pub fn new() -> Self {
+        return UnmanagedRatelessIBLT {
+            coded_symbols: Vec::new(),
+        };
+    }
+}
 
 // a function that takes a set that can be iterted over and an offset and returns a block of coded symbols
 
-pub fn produce_block<T, I>(iterable: I, offset: u64) -> Vec<symbol::CodedSymbol<T>>
+pub fn produce_block<T, I>(iterable: I, offset: usize) -> Vec<symbol::CodedSymbol<T>>
 where
     I: IntoIterator<Item = T>,
     T: symbol::Symbol,
 {
     let mut block = Vec::new();
-    for _ in 0_u64..BLOCK_SIZE {
+    for _ in 0..BLOCK_SIZE {
         block.push(symbol::CodedSymbol::new());
     }
 
@@ -49,7 +138,7 @@ where
             .filter(|&x| x >= offset)
         {
             block[(i - offset) as usize].apply(
-                &symbol::HashedSymbol::new(item.clone()),
+                &item,
                 symbol::Direction::Add,
             );
             // println!("    item mapping {}", i);
@@ -59,8 +148,9 @@ where
     return block;
 }
 
-pub fn peel_one_symbol<T: symbol::Symbol>( block: &mut Vec<symbol::CodedSymbol<T>>) -> symbol::PeelableResult<T> {
-
+pub fn peel_one_symbol<T: symbol::Symbol>(
+    block: &mut Vec<symbol::CodedSymbol<T>>,
+) -> symbol::PeelableResult<T> {
     if block.is_empty() {
         return symbol::PeelableResult::NotPeelable;
     }
@@ -72,10 +162,10 @@ pub fn peel_one_symbol<T: symbol::Symbol>( block: &mut Vec<symbol::CodedSymbol<T
         peelable_result = symbol.peel_peek();
 
         match peelable_result {
-            symbol::PeelableResult::NotPeelable => { continue }
-            _ => { 
+            symbol::PeelableResult::NotPeelable => continue,
+            _ => {
                 remove_symbol_from_block(block, peelable_result.clone());
-                break 
+                break;
             }
         }
     }
@@ -108,7 +198,7 @@ pub fn remove_symbol_from_block<T: symbol::Symbol>(
 
     for i in item_mapping.take_while(|&x| (x as usize) < block_len) {
         block[i as usize].apply(
-            &symbol::HashedSymbol::new(symbol.clone()),
+            &symbol,
             direction.clone(),
         );
     }
@@ -140,7 +230,7 @@ pub fn collapse<T: symbol::Symbol>(
     combined_block
 }
 
-pub fn is_empty<T: symbol::Symbol>( block: &Vec<symbol::CodedSymbol<T>>) -> bool {
+pub fn is_empty<T: symbol::Symbol>(block: &Vec<symbol::CodedSymbol<T>>) -> bool {
     block.iter().all(|x| x.is_empty())
 }
 

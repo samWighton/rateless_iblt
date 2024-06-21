@@ -11,7 +11,12 @@ mod symbol;
 //
 
 // Re-export items from your modules
-pub use encoder::{produce_block, collapse, is_empty};
+pub use encoder::{
+    produce_block,
+    collapse,
+    is_empty,
+    RatelessIBLT,
+};
 pub use symbol::Symbol;
 
 #[cfg(test)]
@@ -135,7 +140,6 @@ mod tests {
 
     #[test]
     fn test_peeling() {
-
         use std::collections::HashSet;
 
         let items: HashSet<SimpleSymbol> = HashSet::from([
@@ -167,44 +171,41 @@ mod tests {
                     break;
                 }
             }
-            
         }
 
         assert!(encoder::is_empty(&coded_symbol_block));
 
         // assert!(false);
-
     }
 
     #[test]
     fn test_symbol() {
-        use symbol::Symbol;
 
         let symbol1 = SimpleSymbol { value: 42 };
         let symbol2 = SimpleSymbol { value: 100 };
 
-        let hash_symbol1 = symbol::HashedSymbol {
-            symbol: symbol1.clone(),
-            hash: symbol1.hash_(),
-        };
-        let hash_symbol2 = symbol::HashedSymbol {
-            symbol: symbol2.clone(),
-            hash: symbol2.hash_(),
-        };
+        // let hash_symbol1 = symbol::HashedSymbol {
+        //     symbol: symbol1.clone(),
+        //     hash: symbol1.hash_(),
+        // };
+        // let hash_symbol2 = symbol::HashedSymbol {
+        //     symbol: symbol2.clone(),
+        //     hash: symbol2.hash_(),
+        // };
         let mut coded_symbol = symbol::CodedSymbol::new();
 
         println!("0 is peelable {}", coded_symbol.is_peelable());
         assert_eq!(coded_symbol.is_peelable(), false);
 
-        coded_symbol.apply(&hash_symbol1, symbol::Direction::Add);
+        coded_symbol.apply(&symbol1, symbol::Direction::Add);
         println!("1 is peelable {}", coded_symbol.is_peelable());
         assert_eq!(coded_symbol.is_peelable(), true);
 
-        coded_symbol.apply(&hash_symbol2, symbol::Direction::Add);
+        coded_symbol.apply(&symbol2, symbol::Direction::Add);
         println!("2 is peelable {}", coded_symbol.is_peelable());
         assert_eq!(coded_symbol.is_peelable(), false);
 
-        coded_symbol.apply(&hash_symbol1, symbol::Direction::Remove);
+        coded_symbol.apply(&symbol1, symbol::Direction::Remove);
         println!("3 is peelable {}", coded_symbol.is_peelable());
         assert_eq!(coded_symbol.is_peelable(), true);
 
@@ -214,11 +215,11 @@ mod tests {
         match peeled_symbol {
             symbol::PeelableResult::Local(symbol) => {
                 println!("Peeled Local Symbol: {:?}", symbol);
-                assert_eq!(symbol.value, hash_symbol2.symbol.value);
+                assert_eq!(symbol.value, symbol2.value);
             }
             symbol::PeelableResult::Remote(symbol) => {
                 println!("Peeled Remote Symbol: {:?}", symbol);
-                assert_eq!(symbol.value, hash_symbol2.symbol.value);
+                assert_eq!(symbol.value, symbol2.value);
             }
             symbol::PeelableResult::NotPeelable => {
                 println!("No symbol to peel");

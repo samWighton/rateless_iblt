@@ -13,6 +13,8 @@ pub trait Symbol: Clone + Debug {
     // const BYTE_ARRAY_LENGTH: usize;
     // fn encode_to_bytes(&self) -> [u8; Self::BYTE_ARRAY_LENGTH];
     // fn decode_from_bytes(bytes: &[u8; Self::BYTE_ARRAY_LENGTH]) -> Self;
+    // fn encode_to_bytes(&self) -> Vec<u8>;
+    // fn decode_from_bytes(bytes: &Vec<u8>) -> Self;
 
     fn empty() -> Self;
 
@@ -32,23 +34,8 @@ pub trait Symbol: Clone + Debug {
     fn hash_(&self) -> u64;
 }
 
-// HashedSymbol is the bundle of a symbol and its hash.
-#[derive(Clone, Debug)]
-pub struct HashedSymbol<T: Symbol> {
-    pub symbol: T,
-    pub hash: u64,
-}
-
-impl<T: Symbol> HashedSymbol<T> {
-    pub fn new(symbol: T) -> Self {
-        let hash = symbol.hash_();
-        HashedSymbol { symbol, hash }
-    }
-}
-
 // coded symbol produced by a Rateless IBLT encoder.
-// I have made the decision here to not use HashedSymbol as a subfield of CodedSymbol
-// as it makes the implementation of new() more aligned with how this struct is used.
+// It might be good to store the encoded symbol rather than the symbol itself
 #[derive(Clone, Debug)]
 pub struct CodedSymbol<T: Symbol> {
     pub symbol: T,
@@ -91,9 +78,10 @@ pub enum Direction {
 
 impl<T: Symbol> CodedSymbol<T> {
     //It might be nice to split this into an 'add' and 'remove'
-    pub fn apply(&mut self, s: &HashedSymbol<T>, direction: Direction) {
-        self.symbol = self.symbol.xor(&s.symbol);
-        self.hash ^= s.hash;
+    pub fn apply(&mut self, s: &T, direction: Direction) {
+        
+        self.symbol = self.symbol.xor(&s);
+        self.hash ^= s.hash_();
         match direction {
             Direction::Add => self.count += 1,
             Direction::Remove => self.count -= 1,
