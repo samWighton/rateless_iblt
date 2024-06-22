@@ -8,6 +8,8 @@
 // We need this to be able to send the codedSymbols over the network.
 // The xor of a bytearray is trivial
 use std::fmt::Debug;
+use std::marker::PhantomData;
+use std::hash::{DefaultHasher, Hash, Hasher};
 
 pub trait Symbol: Clone + Debug {
     const BYTE_ARRAY_LENGTH: usize;
@@ -16,29 +18,37 @@ pub trait Symbol: Clone + Debug {
     fn encode_to_bytes(&self) -> Vec<u8>;
     fn decode_from_bytes(bytes: &Vec<u8>) -> Self;
 
-    fn empty() -> Self;
+    fn hash_(&self) -> u64 {
+        let encoded = self.encode_to_bytes();
+        let mut hasher = DefaultHasher::new();
+        encoded.hash(&mut hasher);
+        hasher.finish()
+    }
 
-    // XOR returns t ^ t2, where t is the method receiver. XOR is allowed to
-    // modify the method receiver. Although the method is called XOR (because
-    // the bitwise exclusive-or operation is a valid group operation for groups
-    // of fixed-length bit strings), it can implement any operation that
-    // satisfy the aforementioned properties.
-    fn xor(&mut self, other: &Self) -> Self;
+    // fn empty() -> Self;
 
-    // hash_ returns the hash of the method receiver. It must not modify the
-    // method receiver. It must not be homomorphic over the group operation.
-    // That is, the probability that
-    //   (a ^ b).hash() == a.hash() ^ b.hash()
-    // must be negligible. Here, ^ is the group operation on the left-hand
-    // side, and bitwise exclusive-or on the right side.
-    fn hash_(&self) -> u64;
+    // // XOR returns t ^ t2, where t is the method receiver. XOR is allowed to
+    // // modify the method receiver. Although the method is called XOR (because
+    // // the bitwise exclusive-or operation is a valid group operation for groups
+    // // of fixed-length bit strings), it can implement any operation that
+    // // satisfy the aforementioned properties.
+    // fn xor(&mut self, other: &Self) -> Self;
+
+    // // hash_ returns the hash of the method receiver. It must not modify the
+    // // method receiver. It must not be homomorphic over the group operation.
+    // // That is, the probability that
+    // //   (a ^ b).hash() == a.hash() ^ b.hash()
+    // // must be negligible. Here, ^ is the group operation on the left-hand
+    // // side, and bitwise exclusive-or on the right side.
+    // fn hash_(&self) -> u64;
 }
 
 // coded symbol produced by a Rateless IBLT encoder.
 // It might be good to store the encoded symbol rather than the symbol itself
 #[derive(Clone, Debug)]
 pub struct CodedSymbol<T: Symbol> {
-    pub symbol: T,
+    // pub symbol: T,
+    _marker: PhantomData<T>,
     pub sum: Vec<u8>,
     pub hash: u64,
     pub count: i64,
@@ -46,12 +56,13 @@ pub struct CodedSymbol<T: Symbol> {
 
 impl<T: Symbol> CodedSymbol<T> {
     pub fn new() -> Self {
-        let symbol = T::empty();
+        // let symbol = T::empty();
         let sum = vec![0u8; T::BYTE_ARRAY_LENGTH];
         let hash = 0;
         let count = 0;
         CodedSymbol {
-            symbol,
+            // symbol,
+            _marker: PhantomData,
             sum,
             hash,
             count,
@@ -89,7 +100,7 @@ impl<T: Symbol> CodedSymbol<T> {
             .map(|(x, y)| x ^ y)
             .collect();
 
-        self.symbol = self.symbol.xor(&s);
+        // self.symbol = self.symbol.xor(&s);
         self.hash ^= s.hash_();
         match direction {
             Direction::Add => self.count += 1,
@@ -106,7 +117,7 @@ impl<T: Symbol> CodedSymbol<T> {
 
         let mut new_coded_symbol = self.clone();
 
-        new_coded_symbol.symbol = new_coded_symbol.symbol.xor(&b.symbol);
+        // new_coded_symbol.symbol = new_coded_symbol.symbol.xor(&b.symbol);
         new_coded_symbol.hash ^= b.hash;
         new_coded_symbol.count += b.count;
 
@@ -124,7 +135,7 @@ impl<T: Symbol> CodedSymbol<T> {
 
         let mut new_coded_symbol = self.clone();
 
-        new_coded_symbol.symbol = new_coded_symbol.symbol.xor(&b.symbol);
+        // new_coded_symbol.symbol = new_coded_symbol.symbol.xor(&b.symbol);
         new_coded_symbol.hash ^= b.hash;
         new_coded_symbol.count -= b.count;
 
@@ -139,7 +150,7 @@ impl<T: Symbol> CodedSymbol<T> {
     // this does not modify the CodedSymbol
     pub fn is_peelable(&self) -> bool {
         if self.count == 1 || self.count == -1 {
-            if self.hash == self.symbol.hash_() {
+            if self.hash == T::decode_from_bytes(&self.sum).hash_() {
                 return true;
             }
         }
@@ -149,9 +160,9 @@ impl<T: Symbol> CodedSymbol<T> {
     pub fn peel(&mut self) -> PeelableResult<T> {
         if self.is_peelable() {
             let return_result = if self.count == 1 {
-                PeelableResult::Local(self.symbol.clone())
+                PeelableResult::Local(T::decode_from_bytes(&self.sum))
             } else {
-                PeelableResult::Remote(self.symbol.clone())
+                PeelableResult::Remote(T::decode_from_bytes(&self.sum))
             };
 
             *self = CodedSymbol::new();
@@ -163,9 +174,9 @@ impl<T: Symbol> CodedSymbol<T> {
     pub fn peel_peek(&self) -> PeelableResult<T> {
         if self.is_peelable() {
             let return_result = if self.count == 1 {
-                PeelableResult::Local(self.symbol.clone())
+                PeelableResult::Local(T::decode_from_bytes(&self.sum))
             } else {
-                PeelableResult::Remote(self.symbol.clone())
+                PeelableResult::Remote(T::decode_from_bytes(&self.sum))
             };
 
             return return_result;

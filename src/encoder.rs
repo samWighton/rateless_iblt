@@ -186,7 +186,6 @@ where
     }
 
     for item in iterable.into_iter() {
-        // println!("item {:?}", item);
         let item_mapping = mapping::RandomMapping::new(&item);
 
         for i in item_mapping
@@ -194,7 +193,6 @@ where
             .filter(|&x| x >= offset)
         {
             block[(i - offset) as usize].apply(&item, symbol::Direction::Add);
-            // println!("    item mapping {}", i);
         }
     }
 

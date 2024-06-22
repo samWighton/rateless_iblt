@@ -24,40 +24,22 @@ impl riblt::Symbol for SimpleSymbol {
         let timestamp = u64::from_le_bytes(bytes[8..16].try_into().unwrap());
         SimpleSymbol { unique_id, timestamp }
     }
-    fn xor(&mut self, other: &Self) -> Self {
-        Self {
-            unique_id: self.unique_id ^ other.unique_id,
-            timestamp: self.timestamp ^ other.timestamp,
-        }
-    }
     fn hash_(&self) -> u64 {
         let mut hasher = DefaultHasher::new();
         self.unique_id.hash(&mut hasher);
         hasher.finish()
     }
-    fn empty() -> Self {
-        SimpleSymbol {
-            unique_id: 0,
-            timestamp: 0,
-        }
-    }
-
-    // fn encode_to_bytes(&self) -> Vec<u8> {
-    //     let mut buffer = vec![0u8; SimpleSymbol::BYTE_ARRAY_LENGTH];
-    //     // buffer.extend_from_slice(&self.unique_id.to_le_bytes());
-    //     buffer[0..8].copy_from_slice(&self.unique_id.to_le_bytes());
-
-    //     // buffer[0..8].copy_from_slice(&self.unique_id.to_le_bytes());
-    //     // buffer[2..4].copy_from_slice(&self.field2.to_le_bytes());
-
-    //     buffer
+    // fn xor(&mut self, other: &Self) -> Self {
+    //     Self {
+    //         unique_id: self.unique_id ^ other.unique_id,
+    //         timestamp: self.timestamp ^ other.timestamp,
+    //     }
     // }
-
-    // fn decode_from_bytes(buffer: &Vec<u8>) -> Self {
-    //     let unique_id = u64::from_le_bytes(buffer[0..8].try_into().unwrap());
-    //     // let field2 = u16::from_le_bytes(buffer[2..4].try_into().unwrap());
-
-    //     SimpleSymbol { unique_id }
+    // fn empty() -> Self {
+    //     SimpleSymbol {
+    //         unique_id: 0,
+    //         timestamp: 0,
+    //     }
     // }
 }
 
@@ -70,7 +52,7 @@ fn main() {
         // SimpleSymbol { unique_id: 16 },
     ]);
 
-    for i in 0..10_000 {
+    for i in 0..1_000_000 {
         local_items.insert(SimpleSymbol {
             unique_id: i,
             timestamp: 0,
