@@ -33,3 +33,31 @@ impl RandomMapping {
         RandomMapping { prng, last_idx: 0 }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::*;
+    use crate::test_helpers::SimpleSymbol;
+
+    #[test]
+    fn test_mapping() {
+        let rm = RandomMapping::new(&SimpleSymbol { value: 1 });
+
+        for index in rm.take(10) {
+            println!("{}", index);
+        }
+        let rm = RandomMapping::new(&SimpleSymbol { value: 2 });
+        for index in rm.take(10) {
+            println!("{}", index);
+        }
+
+        let rm = RandomMapping::new(&SimpleSymbol { value: 2 });
+
+        //combining take_while and filter can give us the indexes that land in a range
+        //helpful if we are computing the coded symbols in a block
+        let below_100: Vec<usize> = rm.take_while(|&x| x <= 100).filter(|&x| x > 30).collect();
+        println!("{:?}", below_100);
+        // assert!(false);
+    }
+}
+
