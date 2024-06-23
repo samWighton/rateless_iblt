@@ -3,11 +3,14 @@ name = "riblt"
 version = "0.1.0"
 edition = "2021"
 authors = ["Sam Wighton"]
+license = "MIT"
+license-file = "LICENSE"
+description = "A Rust implementation of the Rateless Invertable Bloom Lookup Table (RIBLT) data structure."
+repository = "https://github.com/samWighton/rateless_iblt"
 
 [[example]]
 name = "basic_usage"
 path = "examples/basic_usage.rs"
-
 
 [dependencies]
 serde = { version = "1.0.203", features = ["derive"] }
