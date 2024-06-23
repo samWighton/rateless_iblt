@@ -1,20 +1,13 @@
-// a symbol is a item in the set
-//
-// A CodedSymbol can be peeled when the count is 1 or -1 and the hash matches
-//
-// To better fit with the Rust ecoststem, I wonder if it would be better to require the symbol to
-// be encodeable + decodable (to a fixed width byte array) rather than specify the xor function
-// below
-// We need this to be able to send the codedSymbols over the network.
-// The xor of a bytearray is trivial
+use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
-use std::marker::PhantomData;
 use std::hash::{DefaultHasher, Hash, Hasher};
+use std::marker::PhantomData;
 
+/// A symbol is an item in the set
+///
+/// A CodedSymbol can be peeled when the count is 1 or -1 and the hash matches
 pub trait Symbol: Clone + Debug {
     const BYTE_ARRAY_LENGTH: usize;
-    // fn encode_to_bytes(&self) -> [u8; Self::BYTE_ARRAY_LENGTH];
-    // fn decode_from_bytes(bytes: &[u8; Self::BYTE_ARRAY_LENGTH]) -> Self;
     fn encode_to_bytes(&self) -> Vec<u8>;
     fn decode_from_bytes(bytes: &Vec<u8>) -> Self;
 
@@ -44,8 +37,7 @@ pub trait Symbol: Clone + Debug {
 }
 
 // coded symbol produced by a Rateless IBLT encoder.
-// It might be good to store the encoded symbol rather than the symbol itself
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CodedSymbol<T: Symbol> {
     // pub symbol: T,
     _marker: PhantomData<T>,
@@ -56,12 +48,10 @@ pub struct CodedSymbol<T: Symbol> {
 
 impl<T: Symbol> CodedSymbol<T> {
     pub fn new() -> Self {
-        // let symbol = T::empty();
         let sum = vec![0u8; T::BYTE_ARRAY_LENGTH];
         let hash = 0;
         let count = 0;
         CodedSymbol {
-            // symbol,
             _marker: PhantomData,
             sum,
             hash,
@@ -73,7 +63,7 @@ impl<T: Symbol> CodedSymbol<T> {
 // When peeling, codedSymbols with a count of 1 are present only locally
 // and codedSymbols with a count of -1 were present only in the remote set
 
-#[derive(PartialEq, Eq, Clone)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub enum PeelableResult<T: Symbol> {
     Local(T),
     Remote(T),
@@ -89,18 +79,26 @@ pub enum Direction {
 impl<T: Symbol> CodedSymbol<T> {
     //It might be nice to split this into an 'add' and 'remove'
     pub fn apply(&mut self, s: &T, direction: Direction) {
-
-        assert_eq!(self.sum.len(), T::BYTE_ARRAY_LENGTH, "self.sum must have the length specified by T::BYTE_ARRAY_LENGTH.");
+        assert_eq!(
+            self.sum.len(),
+            T::BYTE_ARRAY_LENGTH,
+            "self.sum must have the length specified by T::BYTE_ARRAY_LENGTH."
+        );
         let encoded_s = s.encode_to_bytes();
 
-        assert_eq!(encoded_s.len(), T::BYTE_ARRAY_LENGTH, "encoded_s must have the length specified by T::BYTE_ARRAY_LENGTH.");
+        assert_eq!(
+            encoded_s.len(),
+            T::BYTE_ARRAY_LENGTH,
+            "encoded_s must have the length specified by T::BYTE_ARRAY_LENGTH."
+        );
 
-        self.sum = self.sum.iter()
+        self.sum = self
+            .sum
+            .iter()
             .zip(encoded_s.iter())
             .map(|(x, y)| x ^ y)
             .collect();
 
-        // self.symbol = self.symbol.xor(&s);
         self.hash ^= s.hash_();
         match direction {
             Direction::Add => self.count += 1,
@@ -111,17 +109,25 @@ impl<T: Symbol> CodedSymbol<T> {
     //used by the encoder to join two vectors of codedSymbols together produced from two distinct sets
     //The results are only valid if there were no duplicates between the original sets
     pub fn combine(&self, b: &CodedSymbol<T>) -> CodedSymbol<T> {
-
-        assert_eq!(self.sum.len(), T::BYTE_ARRAY_LENGTH, "self.sum must have the length specified by T::BYTE_ARRAY_LENGTH.");
-        assert_eq!(b.sum.len(), T::BYTE_ARRAY_LENGTH, "encoded_s must have the length specified by T::BYTE_ARRAY_LENGTH.");
+        assert_eq!(
+            self.sum.len(),
+            T::BYTE_ARRAY_LENGTH,
+            "self.sum must have the length specified by T::BYTE_ARRAY_LENGTH."
+        );
+        assert_eq!(
+            b.sum.len(),
+            T::BYTE_ARRAY_LENGTH,
+            "encoded_s must have the length specified by T::BYTE_ARRAY_LENGTH."
+        );
 
         let mut new_coded_symbol = self.clone();
 
-        // new_coded_symbol.symbol = new_coded_symbol.symbol.xor(&b.symbol);
         new_coded_symbol.hash ^= b.hash;
         new_coded_symbol.count += b.count;
 
-        new_coded_symbol.sum = self.sum.iter()
+        new_coded_symbol.sum = self
+            .sum
+            .iter()
             .zip(b.sum.iter())
             .map(|(x, y)| x ^ y)
             .collect();
@@ -130,8 +136,16 @@ impl<T: Symbol> CodedSymbol<T> {
     }
 
     pub fn collapse(&self, b: &CodedSymbol<T>) -> CodedSymbol<T> {
-        assert_eq!(self.sum.len(), T::BYTE_ARRAY_LENGTH, "self.sum must have the length specified by T::BYTE_ARRAY_LENGTH.");
-        assert_eq!(b.sum.len(), T::BYTE_ARRAY_LENGTH, "encoded_s must have the length specified by T::BYTE_ARRAY_LENGTH.");
+        assert_eq!(
+            self.sum.len(),
+            T::BYTE_ARRAY_LENGTH,
+            "self.sum must have the length specified by T::BYTE_ARRAY_LENGTH."
+        );
+        assert_eq!(
+            b.sum.len(),
+            T::BYTE_ARRAY_LENGTH,
+            "encoded_s must have the length specified by T::BYTE_ARRAY_LENGTH."
+        );
 
         let mut new_coded_symbol = self.clone();
 
@@ -139,7 +153,9 @@ impl<T: Symbol> CodedSymbol<T> {
         new_coded_symbol.hash ^= b.hash;
         new_coded_symbol.count -= b.count;
 
-        new_coded_symbol.sum = self.sum.iter()
+        new_coded_symbol.sum = self
+            .sum
+            .iter()
             .zip(b.sum.iter())
             .map(|(x, y)| x ^ y)
             .collect();
@@ -183,6 +199,7 @@ impl<T: Symbol> CodedSymbol<T> {
         }
         PeelableResult::NotPeelable
     }
+
     pub fn is_empty(&self) -> bool {
         // if self.symbol != T::empty() {
         //     return false;
@@ -253,4 +270,3 @@ mod tests {
         // assert!(false);
     }
 }
-

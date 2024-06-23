@@ -36,8 +36,8 @@ impl RandomMapping {
 
 #[cfg(test)]
 mod tests {
-    use crate::*;
     use crate::test_helpers::SimpleSymbol;
+    use crate::*;
 
     #[test]
     fn test_mapping() {
@@ -60,4 +60,3 @@ mod tests {
         // assert!(false);
     }
 }
-

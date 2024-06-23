@@ -7,7 +7,7 @@ use crate::symbol;
 // be generating CodedSymbols that are not used
 //
 // It might make sense to set a BLOCK_SIZE that is inversly proportional to size of the Symbol
-pub const BLOCK_SIZE: usize = 20;
+pub const BLOCK_SIZE: usize = 1024;
 
 // There is a managed and unmanaged version of the RatelessIBLT
 // It is expected that the managed version will be used when we have access to the set
@@ -31,10 +31,10 @@ where
     type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        //TODO
-        None
+        todo!();
     }
 }
+
 impl<T, I> RatelessIBLT<T, I>
 where
     T: symbol::Symbol,
@@ -52,7 +52,6 @@ where
         let extend_until = usize::max(index + 1, current_len + BLOCK_SIZE);
 
         for _ in current_len..extend_until {
-            println!("Extending coded symbols");
             self.coded_symbols.push(symbol::CodedSymbol::new());
         }
 
@@ -76,17 +75,19 @@ where
         self.coded_symbols[index].clone()
     }
     pub fn new(set_iterator: I) -> Self {
-        RatelessIBLT {
+        let mut riblt = RatelessIBLT {
             coded_symbols: Vec::new(),
             set_iterator,
-        }
+        };
+        riblt.extend_coded_symbols(0);
+        riblt
     }
-    pub fn combine(&mut self, other: &RatelessIBLT<T, I>) -> Vec<symbol::CodedSymbol<T>> {
+    pub fn combine(&mut self, other: &RatelessIBLT<T, I>) -> UnmanagedRatelessIBLT<T> {
         // if the passed in RatelessIBLT has more coded symbols than self, we extend Self
         self.extend_coded_symbols(other.coded_symbols.len());
         combine(&self.coded_symbols, &other.coded_symbols)
     }
-    pub fn collapse(&mut self, other: &RatelessIBLT<T, I>) -> Vec<symbol::CodedSymbol<T>> {
+    pub fn collapse(&mut self, other: &UnmanagedRatelessIBLT<T>) -> UnmanagedRatelessIBLT<T> {
         // if the passed in RatelessIBLT has more coded symbols than self, we extend Self
         self.extend_coded_symbols(other.coded_symbols.len());
         collapse(&self.coded_symbols, &other.coded_symbols)
@@ -109,8 +110,12 @@ where
         }
         peeled_symbols
     }
+
+    /// returns true if there are no symbols
+    /// If we can't peel any symbols, but it is not empty it means that we have symbols that
+    /// can't be recovered
+    /// We can't know if the RatelessIBLT is empty until we have iterated over the set
     pub fn is_empty(&mut self) -> bool {
-        //We can't know if the RatelessIBLT is empty until we have iterated over the set
         self.extend_coded_symbols(0); // This does nothing if we already have some coded symbols
         is_empty(&self.coded_symbols)
     }
@@ -120,7 +125,7 @@ pub struct UnmanagedRatelessIBLT<T>
 where
     T: symbol::Symbol,
 {
-    coded_symbols: Vec<symbol::CodedSymbol<T>>,
+    pub coded_symbols: Vec<symbol::CodedSymbol<T>>,
 }
 
 impl<T> Iterator for UnmanagedRatelessIBLT<T>
@@ -144,10 +149,10 @@ where
             coded_symbols: Vec::new(),
         };
     }
-    pub fn combine(&self, other: &UnmanagedRatelessIBLT<T>) -> Vec<symbol::CodedSymbol<T>> {
+    pub fn combine(&self, other: &UnmanagedRatelessIBLT<T>) -> UnmanagedRatelessIBLT<T> {
         combine(&self.coded_symbols, &other.coded_symbols)
     }
-    pub fn collapse(&self, other: &UnmanagedRatelessIBLT<T>) -> Vec<symbol::CodedSymbol<T>> {
+    pub fn collapse(&self, other: &UnmanagedRatelessIBLT<T>) -> UnmanagedRatelessIBLT<T> {
         collapse(&self.coded_symbols, &other.coded_symbols)
     }
     pub fn peel_one_symbol(&mut self) -> symbol::PeelableResult<T> {
@@ -168,36 +173,15 @@ where
         }
         peeled_symbols
     }
+    pub fn add_coded_symbol(&mut self, other: &symbol::CodedSymbol<T>) {
+        self.coded_symbols.push(other.clone());
+    }
     pub fn is_empty(&self) -> bool {
         is_empty(&self.coded_symbols)
     }
 }
 
 // a function that takes a set that can be iterted over and an offset and returns a block of coded symbols
-
-pub fn produce_block<T, I>(iterable: I, offset: usize) -> Vec<symbol::CodedSymbol<T>>
-where
-    I: IntoIterator<Item = T>,
-    T: symbol::Symbol,
-{
-    let mut block = Vec::new();
-    for _ in 0..BLOCK_SIZE {
-        block.push(symbol::CodedSymbol::new());
-    }
-
-    for item in iterable.into_iter() {
-        let item_mapping = mapping::RandomMapping::new(&item);
-
-        for i in item_mapping
-            .take_while(|&x| x < offset + BLOCK_SIZE)
-            .filter(|&x| x >= offset)
-        {
-            block[(i - offset) as usize].apply(&item, symbol::Direction::Add);
-        }
-    }
-
-    return block;
-}
 
 pub fn peel_one_symbol<T: symbol::Symbol>(
     block: &mut Vec<symbol::CodedSymbol<T>>,
@@ -256,26 +240,30 @@ pub fn remove_symbol_from_block<T: symbol::Symbol>(
 pub fn combine<T: symbol::Symbol>(
     block_a: &Vec<symbol::CodedSymbol<T>>,
     block_b: &Vec<symbol::CodedSymbol<T>>,
-) -> Vec<symbol::CodedSymbol<T>> {
+) -> UnmanagedRatelessIBLT<T> {
     let mut combined_block = Vec::new();
 
     for (a, b) in block_a.iter().zip(block_b.iter()) {
         combined_block.push(a.combine(b));
     }
-    combined_block
+    UnmanagedRatelessIBLT {
+        coded_symbols: combined_block,
+    }
 }
 
-// A collapsed block should effectively be the difference between two blocks
+// A collapsed block should effectively contain the difference between two blocks
 pub fn collapse<T: symbol::Symbol>(
     block_local: &Vec<symbol::CodedSymbol<T>>,
     block_remote: &Vec<symbol::CodedSymbol<T>>,
-) -> Vec<symbol::CodedSymbol<T>> {
+) -> UnmanagedRatelessIBLT<T> {
     let mut combined_block = Vec::new();
 
     for (coded_symbol_local, coded_symbol_remote) in block_local.iter().zip(block_remote.iter()) {
         combined_block.push(coded_symbol_local.collapse(coded_symbol_remote));
     }
-    combined_block
+    UnmanagedRatelessIBLT {
+        coded_symbols: combined_block,
+    }
 }
 
 pub fn is_empty<T: symbol::Symbol>(block: &Vec<symbol::CodedSymbol<T>>) -> bool {
@@ -288,34 +276,56 @@ mod tests {
     use crate::test_helpers::SimpleSymbol;
 
     #[test]
-    fn test_encoder() {
+    fn test_collapsing() {
         use std::collections::HashSet;
 
-        let items: HashSet<SimpleSymbol> = HashSet::from([
+        let items_local: HashSet<SimpleSymbol> = HashSet::from([
             SimpleSymbol { value: 7 },
             SimpleSymbol { value: 15 },
             SimpleSymbol { value: 16 },
+            SimpleSymbol { value: 2 },
         ]);
 
-        let items2: HashSet<SimpleSymbol> = HashSet::from([
+        let items_remote: HashSet<SimpleSymbol> = HashSet::from([
             SimpleSymbol { value: 7 },
             SimpleSymbol { value: 15 },
             SimpleSymbol { value: 16 },
             SimpleSymbol { value: 1 },
         ]);
 
-        let coded_symbol_block = produce_block(items.clone(), 0);
-        let coded_symbol_block2 = produce_block(items2.clone(), 0);
+        let mut iblt_local = RatelessIBLT::new(items_local.clone());
+        iblt_local.extend_coded_symbols(0);
+        let mut iblt_remote = RatelessIBLT::new(items_remote.clone());
+        iblt_remote.extend_coded_symbols(0);
 
-        let collapsed_symbol_block = collapse(&coded_symbol_block, &coded_symbol_block2);
+        let local_only: HashSet<SimpleSymbol> =
+            items_local.difference(&items_remote).cloned().collect();
+        let remote_only: HashSet<SimpleSymbol> =
+            items_remote.difference(&items_local).cloned().collect();
 
-        for coded_symbol in coded_symbol_block {
-            println!("original  {:?}", coded_symbol);
+
+        let iblt_remote_unmanaged : UnmanagedRatelessIBLT<SimpleSymbol> = UnmanagedRatelessIBLT {
+            coded_symbols: iblt_remote.coded_symbols.clone(),
+        };
+
+        let mut collapsed_local = iblt_local.collapse(&iblt_remote_unmanaged);
+
+        let mut peeled_set_local = HashSet::new();
+        let mut peeled_set_remote = HashSet::new();
+
+        for s in collapsed_local.peel_all_symbols() {
+            match s {
+                symbol::PeelableResult::Local(symbol) => {
+                    peeled_set_local.insert(symbol.clone());
+                }
+                symbol::PeelableResult::Remote(symbol) => {
+                    peeled_set_remote.insert(symbol.clone());
+                }
+                symbol::PeelableResult::NotPeelable => panic!("Not expecting this case"),
+            }
         }
-
-        for coded_symbol in collapsed_symbol_block {
-            println!("collapsed {:?}", coded_symbol);
-        }
+        assert_eq!(local_only, peeled_set_local);
+        assert_eq!(remote_only, peeled_set_remote);
     }
 
     #[test]
@@ -335,27 +345,23 @@ mod tests {
         //     SimpleSymbol { value: 1 },
         // ]);
 
-        let mut coded_symbol_block = produce_block(items.clone(), 0);
+        let mut iblt = RatelessIBLT::new(items.clone());
+        iblt.extend_coded_symbols(0);
 
-        loop {
-            let peeled_symbol = peel_one_symbol(&mut coded_symbol_block);
-            match peeled_symbol {
+        let mut peeled_set = HashSet::new();
+
+        for s in iblt.peel_all_symbols() {
+            match s {
                 symbol::PeelableResult::Local(symbol) => {
-                    println!("Peeled Local Symbol: {:?}", symbol);
+                    peeled_set.insert(symbol.clone());
                 }
-                symbol::PeelableResult::Remote(symbol) => {
-                    println!("Peeled Remote Symbol: {:?}", symbol);
-                }
-                symbol::PeelableResult::NotPeelable => {
-                    println!("No symbol to peel");
-                    break;
-                }
+                symbol::PeelableResult::Remote(_) => panic!("Not expecting remote symbol"),
+                symbol::PeelableResult::NotPeelable => panic!("Not expecting this case"),
             }
         }
 
-        assert!(is_empty(&coded_symbol_block));
-
-        // assert!(false);
+        assert!(iblt.is_empty());
+        assert_eq!(items, peeled_set);
     }
 
     #[test]
