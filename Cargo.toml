@@ -1,11 +1,12 @@
 [package]
 name = "riblt"
-version = "0.1.1"
+version = "0.1.3"
 edition = "2021"
 authors = ["Sam Wighton"]
-license-file = "LICENSE"
+license = "MIT"
 description = "A Rust implementation of the Rateless Invertable Bloom Lookup Table (RIBLT) data structure."
 repository = "https://github.com/samWighton/rateless_iblt"
+documentation = "https://docs.rs/riblt/latest/riblt/"
 
 [[example]]
 name = "basic_usage"

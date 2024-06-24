@@ -10,8 +10,11 @@ struct SimpleSymbol {
 }
 
 impl riblt::Symbol for SimpleSymbol {
-    // const BYTE_ARRAY_LENGTH: usize = 10;
     const BYTE_ARRAY_LENGTH: usize = 16;
+    // The Symbol trait only requires that the type can be encoded to bytes.
+    // In this function we are doing so in a fairly manual way.
+    // I would recommend using a serialization library like bincode.
+    // You just need to know the size of the byte array that will be produced and then set BYTE_ARRAY_LENGTH to match.
     fn encode_to_bytes(&self) -> Vec<u8> {
         let mut buffer = vec![0u8; 16];
         buffer[0..8].copy_from_slice(&self.unique_id.to_le_bytes());

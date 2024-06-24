@@ -7,6 +7,9 @@ use std::marker::PhantomData;
 pub trait Symbol: Clone + Debug {
     const BYTE_ARRAY_LENGTH: usize;
 
+    /// The Symbol trait only requires that the type can be encoded to a fixed number of bytes.
+    /// You just need to know the size of the byte array that will be produced and then set BYTE_ARRAY_LENGTH to match.
+    /// I recommend using a serialization library like bincode.
     fn encode_to_bytes(&self) -> Vec<u8>;
     fn decode_from_bytes(bytes: &Vec<u8>) -> Self;
 
