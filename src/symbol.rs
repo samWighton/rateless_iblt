@@ -4,65 +4,47 @@ use std::hash::{DefaultHasher, Hash, Hasher};
 use std::marker::PhantomData;
 
 /// A symbol is an item in the set
-///
-/// A CodedSymbol can be peeled when the count is 1 or -1 and the hash matches
 pub trait Symbol: Clone + Debug {
     const BYTE_ARRAY_LENGTH: usize;
+
     fn encode_to_bytes(&self) -> Vec<u8>;
     fn decode_from_bytes(bytes: &Vec<u8>) -> Self;
 
+    /// hash_() calculates the hash of the symbol.
+    /// This implementation can be overridden if needed.
     fn hash_(&self) -> u64 {
         let encoded = self.encode_to_bytes();
         let mut hasher = DefaultHasher::new();
         encoded.hash(&mut hasher);
         hasher.finish()
     }
-
-    // fn empty() -> Self;
-
-    // // XOR returns t ^ t2, where t is the method receiver. XOR is allowed to
-    // // modify the method receiver. Although the method is called XOR (because
-    // // the bitwise exclusive-or operation is a valid group operation for groups
-    // // of fixed-length bit strings), it can implement any operation that
-    // // satisfy the aforementioned properties.
-    // fn xor(&mut self, other: &Self) -> Self;
-
-    // // hash_ returns the hash of the method receiver. It must not modify the
-    // // method receiver. It must not be homomorphic over the group operation.
-    // // That is, the probability that
-    // //   (a ^ b).hash() == a.hash() ^ b.hash()
-    // // must be negligible. Here, ^ is the group operation on the left-hand
-    // // side, and bitwise exclusive-or on the right side.
-    // fn hash_(&self) -> u64;
 }
 
-// coded symbol produced by a Rateless IBLT encoder.
+/// A RIBLT is an infinite sequence of CodedSymbols
+///
+/// The 'sum' field is the XOR of the symbols encoded into this CodedSymbol
+///
+/// The 'hash' field is the XOR of the hashes of the symbols encoded into this CodedSymbol
+///
+/// The 'count' field is the number of local symbols minus the number of remote symbols
+///
+/// The '_marker' phantom field is used to allow us to associate the CodedSymbol with a specific Symbol type.
+/// The type T is used by implemented methods to know what type of Symbol is encoded in the CodedSymbol.
+///
+/// A CodedSymbol can be peeled when the count is 1 or -1 and the hash matches
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CodedSymbol<T: Symbol> {
-    // pub symbol: T,
     _marker: PhantomData<T>,
     pub sum: Vec<u8>,
     pub hash: u64,
     pub count: i64,
 }
 
-impl<T: Symbol> CodedSymbol<T> {
-    pub fn new() -> Self {
-        let sum = vec![0u8; T::BYTE_ARRAY_LENGTH];
-        let hash = 0;
-        let count = 0;
-        CodedSymbol {
-            _marker: PhantomData,
-            sum,
-            hash,
-            count,
-        }
-    }
-}
-
-// When peeling, codedSymbols with a count of 1 are present only locally
-// and codedSymbols with a count of -1 were present only in the remote set
-
+/// If a symbol can be successfully 'peeled' out of a CodedSymbol, it is returned in the PeelableResult.
+///
+/// This enum acts as a wrapper to keep track of if the symbol was local or remote.
+///
+/// It is very common that the symbol is not peelable, so this enum also has the NotPeelable variant.
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub enum PeelableResult<T: Symbol> {
     Local(T),
@@ -77,8 +59,25 @@ pub enum Direction {
 }
 
 impl<T: Symbol> CodedSymbol<T> {
-    //It might be nice to split this into an 'add' and 'remove'
+    pub fn new() -> Self {
+        let sum = vec![0u8; T::BYTE_ARRAY_LENGTH];
+        let hash = 0;
+        let count = 0;
+        CodedSymbol {
+            _marker: PhantomData,
+            sum,
+            hash,
+            count,
+        }
+    }
+
+    /// apply() adds or removes a symbol from the CodedSymbol
+    ///
+    /// Adding a local, or removing a remote, symbol increases the count by 1
+    ///
+    /// Removing a local, or adding a remote, symbol decreases the count by 1
     pub fn apply(&mut self, s: &T, direction: Direction) {
+        //It might be nice to split this into an 'add' and 'remove'
         assert_eq!(
             self.sum.len(),
             T::BYTE_ARRAY_LENGTH,
@@ -92,6 +91,7 @@ impl<T: Symbol> CodedSymbol<T> {
             "encoded_s must have the length specified by T::BYTE_ARRAY_LENGTH."
         );
 
+        // Should be able to update in place here
         self.sum = self
             .sum
             .iter()
@@ -106,8 +106,8 @@ impl<T: Symbol> CodedSymbol<T> {
         };
     }
 
-    //used by the encoder to join two vectors of codedSymbols together produced from two distinct sets
-    //The results are only valid if there were no duplicates between the original sets
+    /// Used by the encoder to join two vectors of codedSymbols together produced from two distinct sets.
+    /// The results are only valid if there were no duplicates between the original sets.
     pub fn combine(&self, b: &CodedSymbol<T>) -> CodedSymbol<T> {
         assert_eq!(
             self.sum.len(),
@@ -135,6 +135,7 @@ impl<T: Symbol> CodedSymbol<T> {
         new_coded_symbol
     }
 
+    /// Used by the encoder to 'subtract' a remote set of codedSymbols from a local set.
     pub fn collapse(&self, b: &CodedSymbol<T>) -> CodedSymbol<T> {
         assert_eq!(
             self.sum.len(),
@@ -163,7 +164,11 @@ impl<T: Symbol> CodedSymbol<T> {
         new_coded_symbol
     }
 
-    // this does not modify the CodedSymbol
+    /// Checks if the CodedSymbol contains only one symbol and therefore can be peeled
+    ///
+    /// A count of 1 does not necessarily mean that the 'sum' field is the xor of only one encoded
+    /// symbol. It could be the xor of two local and one remote symbols. This is why we also
+    /// check the hash.
     pub fn is_peelable(&self) -> bool {
         if self.count == 1 || self.count == -1 {
             if self.hash == T::decode_from_bytes(&self.sum).hash_() {
@@ -173,6 +178,9 @@ impl<T: Symbol> CodedSymbol<T> {
         return false;
     }
 
+    /// Peel extracts a symbol from the CodedSymbol (if possible) and returns it in a PeelableResult
+    /// A PeelableResult is used to keep track of if the symbol was local or remote (or was not
+    /// able to be peeled).
     pub fn peel(&mut self) -> PeelableResult<T> {
         if self.is_peelable() {
             let return_result = if self.count == 1 {
@@ -186,7 +194,7 @@ impl<T: Symbol> CodedSymbol<T> {
         }
         PeelableResult::NotPeelable
     }
-    // same as peel, but does not modify the CodedSymbol
+    /// same as peel, but does not modify the CodedSymbol
     pub fn peel_peek(&self) -> PeelableResult<T> {
         if self.is_peelable() {
             let return_result = if self.count == 1 {
@@ -200,6 +208,7 @@ impl<T: Symbol> CodedSymbol<T> {
         PeelableResult::NotPeelable
     }
 
+    /// Checks if the CodedSymbol contains no symbols
     pub fn is_empty(&self) -> bool {
         // if self.symbol != T::empty() {
         //     return false;
@@ -224,14 +233,6 @@ mod tests {
         let symbol1 = SimpleSymbol { value: 42 };
         let symbol2 = SimpleSymbol { value: 100 };
 
-        // let hash_symbol1 = symbol::HashedSymbol {
-        //     symbol: symbol1.clone(),
-        //     hash: symbol1.hash_(),
-        // };
-        // let hash_symbol2 = symbol::HashedSymbol {
-        //     symbol: symbol2.clone(),
-        //     hash: symbol2.hash_(),
-        // };
         let mut coded_symbol = CodedSymbol::new();
 
         println!("0 is peelable {}", coded_symbol.is_peelable());
@@ -266,7 +267,5 @@ mod tests {
                 assert!(false);
             }
         }
-
-        // assert!(false);
     }
 }

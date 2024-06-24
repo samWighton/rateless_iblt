@@ -20,19 +20,6 @@ pub mod test_helpers {
 
     impl symbol::Symbol for SimpleSymbol {
         const BYTE_ARRAY_LENGTH: usize = 8;
-        // fn xor(&mut self, other: &Self) -> Self {
-        //     Self {
-        //         value: self.value ^ other.value,
-        //     }
-        // }
-        // fn hash_(&self) -> u64 {
-        //     let mut hasher = DefaultHasher::new();
-        //     self.value.hash(&mut hasher);
-        //     hasher.finish()
-        // }
-        // fn empty() -> Self {
-        //     SimpleSymbol { value: 0 }
-        // }
         fn encode_to_bytes(&self) -> Vec<u8> {
             let mut buffer = vec![0u8; SimpleSymbol::BYTE_ARRAY_LENGTH];
             buffer[0..8].copy_from_slice(&self.value.to_le_bytes());

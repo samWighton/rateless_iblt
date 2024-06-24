@@ -1,12 +1,46 @@
-# Rateless IBLT
+# Rateless Invertible Bloom Lookup Table (RIBLT).
 
-https://arxiv.org/html/2402.02668v2
-
-The aim of this Rust Crate is to allow efficient set reconciliation over a network interface. This is acheived using Rateless Invertible Bloom Lookup Tables (Rateless IBLT).
+The aim of this Rust Crate is to allow efficient set reconciliation over a network interface. This is achieved using Rateless Invertible Bloom Lookup Tables (RIBLT).
 
 This crate is based on the paper titled 'Practical Rateless Set Reconciliation' authored by Lei Yang, Yossi Gilad, Mohammad Alizadeh.
 
-I intend to include additional functionality to help with cases where the sets are stored on disk. 
+https://arxiv.org/html/2402.02668v2
+
+This crate does not require a particular 'set' implementation, it only requires that the set is iterable. 
+This allows the user to use any set implementation that is appropriate for their use-case, including a set read from disk.
+
+Please note that this crate does not look for duplicates in the set. Duplicate items cannot be peeled out of the RIBLT.
+
+## Glossary
+
+- Symbol: An item in the set
+- CodedSymbol: An element of the RIBLT.
+- Peel: The process of removing a symbol from the RIBLT.
+
+## Overview of what this crate gives you
+
+### RatelessIBLT
+
+A struct that is created by passing in an iterable set of symbols.
+
+It will create the RIBLT codedSymbols as needed.
+
+See the RatelessIBLT struct for more information.
+
+### UnmanagedRatelessIBLT
+
+Similar to the RatelessIBLT, but without the iterable set.
+
+This is used when we don't have access to the set that created this RIBLT.
+
+It is also used when we have 'combined' or 'collapsed' two RIBLTs together.
+
+See the UnmanagedRatelessIBLT struct for more information.
+
+## Hash collision probability
+
+As described by the birthday paradox, the probability of a hash collision is 50% when the number of items in the set is equal to the square root of the possible outcomes. We are using 64-bit hashes, so we should be expecting hash collisions when we are around 4 billion items.
+
 
 ## General challenges for very large sets
 
@@ -43,21 +77,17 @@ Servers could share the coded symbols from the Rateless IBLT to a number of othe
 
 The repair mechanism would also handle cases of a network partition. Rateless IBLT would then be used to efficiently reconcile the differences.
 
-## Interface presented by the crate
+## Future work
 
-- Create a CodedSymbols structure from a iterable set
-- Create a CodedSymbols structure from a network stream
-- Create an empty CodedSymbols structure 
-- Add an item to the CodedSymbols structure
-- Remove an item from the CodedSymbols structure
-- Combine two CodedSymbols structures (that were built from distinct sets)
-- Collapse a local and remote CodedSymbols structure together
-- Get a particular length (with optional offset) of CodedSymbols (to send over the network)
-- Iterate to 'peel' off Symbols
-- Dry-run to check if we can peel to an empty set, this let's us know if we have received enough of a remote stream of CodedSymbols
+### Async and multi-threading
 
-If the struct stores a reference to the iterable set, we probably want a mechanism to check if the set has changed.
-We want this because if we are computing a block of CodedSymbols at a time, we iterate over the set once per block generated.
-If the set changes, we need to regenerate all the codedSymbols again.
-This could be as simple as ensuring the 0th index codedSymbol matches
+There is currently no use of async or multi-threading in this crate. I will test the performance gains in the future.
+
+This is considered a lower priority, as I am anticipating this will be used on a server that is performing other tasks.
+
+## Notes
+
+Currently it is the responsibility of the calling code to recreate the struct when the set changes.
+
+
 

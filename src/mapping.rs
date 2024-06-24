@@ -1,6 +1,11 @@
 use crate::symbol::Symbol;
 use std::f64;
 
+/// A deterministic pseudo random mapping from a symbol to a sequence of indexes.
+///
+/// The first index is always 0.
+///
+/// I have yet to thoroughly test this is stable across different platforms/CPUs/machines.
 pub struct RandomMapping {
     prng: u64,
     last_idx: u64,
@@ -36,6 +41,7 @@ impl RandomMapping {
 
 #[cfg(test)]
 mod tests {
+    // no real tests here, I was just looking at the output
     use crate::test_helpers::SimpleSymbol;
     use crate::*;
 

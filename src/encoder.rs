@@ -1,19 +1,20 @@
 use crate::mapping;
 use crate::symbol;
 
-// constant for block size
-// This could be custom for each server,
-// Massive values reduce iterations over the set, but increase memory usage and are more likely to
-// be generating CodedSymbols that are not used
-//
-// It might make sense to set a BLOCK_SIZE that is inversly proportional to size of the Symbol
+/// Constant for block size. 
+/// As it can be computationally expensive to iterate over the set, it makes sense to generate
+/// a 'block' of coded symbols at a time.
+///
+/// Massive values reduce iterations over the set, but increase memory usage and are more likely to
+/// be generating CodedSymbols that are not used
+///
+/// It might make sense to set a BLOCK_SIZE that is inversly proportional to size of the Symbol
 pub const BLOCK_SIZE: usize = 1024;
 
-// There is a managed and unmanaged version of the RatelessIBLT
-// It is expected that the managed version will be used when we have access to the set
-// The managed version will generate coded symbols as needed (for efficiencey, it will generate a 'block' of coded symbols at a time)
-// The unmanaged version will be used whereever we don't have access to the set
-
+/// There is a managed and unmanaged version of the RatelessIBLT
+/// It is expected that the managed version will be used when we have access to the set
+/// The managed version will generate coded symbols as needed (for efficiencey, it will generate a 'block' of coded symbols at a time)
+/// The unmanaged version will be used whereever we don't have access to the set
 pub struct RatelessIBLT<T, I>
 where
     T: symbol::Symbol,
@@ -23,23 +24,25 @@ where
     set_iterator: I,
 }
 
-impl<T, I> Iterator for RatelessIBLT<T, I>
-where
-    T: symbol::Symbol,
-    I: IntoIterator<Item = T> + Clone,
-{
-    type Item = T;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        todo!();
-    }
-}
+// It might be nice to 'peel' the symbols out as an iterator
+// impl<T, I> Iterator for RatelessIBLT<T, I>
+// where
+//     T: symbol::Symbol,
+//     I: IntoIterator<Item = T> + Clone,
+// {
+//     type Item = T;
+// 
+//     fn next(&mut self) -> Option<Self::Item> {
+//         todo!();
+//     }
+// }
 
 impl<T, I> RatelessIBLT<T, I>
 where
     T: symbol::Symbol,
     I: IntoIterator<Item = T> + Clone,
 {
+    /// CodedSymbols are created as required, this method extends the codedSymbols to at least the provided index
     pub fn extend_coded_symbols(&mut self, index: usize) {
         // extend the coded symbols so that we can access the coded symbol at the provided index
         // if the index is within the current length of the coded_symbols, we do nothing
@@ -68,12 +71,23 @@ where
             }
         }
     }
+
+    /// Returns the coded symbol at the provided index.
+    ///
+    /// It is expected that this will be called in a loop to stream the coded symbols to a remote server.
+    ///
+    /// If the index is greater than the current length of the coded symbols, we extend the coded symbols.
     pub fn get_coded_symbol(&mut self, index: usize) -> symbol::CodedSymbol<T> {
         if index >= self.coded_symbols.len() {
             self.extend_coded_symbols(index);
         }
         self.coded_symbols[index].clone()
     }
+
+    /// Constructing a new RatelessIBLT requires a set of symbols that can be iterated over.
+    /// The RatelessIBLT will generate coded symbols as needed. So this set may be iterated over multiple times.
+    ///
+    /// It is the responsibility of the calling code to create a new RatelessIBLT if the set changes.
     pub fn new(set_iterator: I) -> Self {
         let mut riblt = RatelessIBLT {
             coded_symbols: Vec::new(),
@@ -82,19 +96,35 @@ where
         riblt.extend_coded_symbols(0);
         riblt
     }
+
+    /// Join two vectors of codedSymbols together produced from two distinct sets.
+    /// The results are only valid if there were no duplicates between the original sets.
     pub fn combine(&mut self, other: &RatelessIBLT<T, I>) -> UnmanagedRatelessIBLT<T> {
         // if the passed in RatelessIBLT has more coded symbols than self, we extend Self
         self.extend_coded_symbols(other.coded_symbols.len());
         combine(&self.coded_symbols, &other.coded_symbols)
     }
+
+    /// Subtract a remote sequence of codedSymbols from a local sequence.
     pub fn collapse(&mut self, other: &UnmanagedRatelessIBLT<T>) -> UnmanagedRatelessIBLT<T> {
         // if the passed in RatelessIBLT has more coded symbols than self, we extend Self
         self.extend_coded_symbols(other.coded_symbols.len());
         collapse(&self.coded_symbols, &other.coded_symbols)
     }
+
+    /// If possible, peel a single symbol from the RatelessIBLT
     pub fn peel_one_symbol(&mut self) -> symbol::PeelableResult<T> {
         peel_one_symbol(&mut self.coded_symbols)
     }
+
+
+    /// Peel all symbols from the RatelessIBLT that we possibly can
+    ///
+    /// It is not expected that this would be called on a RatelessIBLT as we still have access to
+    /// the set that we used to construct it.
+    ///
+    /// We expect to call this on an UnmanagedRatelessIBLT that was produced from collapsing a
+    /// remote against our local
     pub fn peel_all_symbols(&mut self) -> Vec<symbol::PeelableResult<T>> {
         let mut peeled_symbols = Vec::new();
         loop {
@@ -121,6 +151,17 @@ where
     }
 }
 
+/// The unmanaged version of the RatelessIBLT is used when we don't have access to the set.
+/// It is also used when we want to combine or collapse two RatelessIBLTs.
+///
+/// In expected use, we will have a RatelessIBLT constructed from a locally available set of symbols.
+/// We will use an UnmanagedRatelessIBLT to hold the coded symbols streamed from a remote server.
+///
+/// Collapsing the two will give us the symbols that were in the remote set but not in the local set.
+/// We can use these to correct our local set.
+///
+/// It will also give us the symbols that were in the local set but not in the remote set.
+/// We could send these to the remote server to correct their set.
 pub struct UnmanagedRatelessIBLT<T>
 where
     T: symbol::Symbol,
@@ -128,36 +169,43 @@ where
     pub coded_symbols: Vec<symbol::CodedSymbol<T>>,
 }
 
-impl<T> Iterator for UnmanagedRatelessIBLT<T>
-where
-    T: symbol::Symbol,
-{
-    type Item = T;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        //TODO
-        None
-    }
-}
+// It might be nice to 'peel' the symbols out as an iterator
+// impl<T> Iterator for UnmanagedRatelessIBLT<T>
+// where
+//     T: symbol::Symbol,
+// {
+//     type Item = T;
+// 
+//     fn next(&mut self) -> Option<Self::Item> {
+//         //TODO
+//         None
+//     }
+// }
 impl<T> UnmanagedRatelessIBLT<T>
 where
     T: symbol::Symbol,
 {
-    //
     pub fn new() -> Self {
         return UnmanagedRatelessIBLT {
             coded_symbols: Vec::new(),
         };
     }
+
+    /// Join two vectors of codedSymbols together produced from two distinct sets.
+    /// The results are only valid if there were no duplicates between the original sets.
     pub fn combine(&self, other: &UnmanagedRatelessIBLT<T>) -> UnmanagedRatelessIBLT<T> {
         combine(&self.coded_symbols, &other.coded_symbols)
     }
+    /// Subtract a remote sequence of codedSymbols from a local sequence.
     pub fn collapse(&self, other: &UnmanagedRatelessIBLT<T>) -> UnmanagedRatelessIBLT<T> {
         collapse(&self.coded_symbols, &other.coded_symbols)
     }
+    /// If possible, peel a single symbol from the RatelessIBLT
     pub fn peel_one_symbol(&mut self) -> symbol::PeelableResult<T> {
         peel_one_symbol(&mut self.coded_symbols)
     }
+    /// Peel all symbols from the RatelessIBLT that we possibly can
+    /// Call the is_empty method to check if there are any symbols left
     pub fn peel_all_symbols(&mut self) -> Vec<symbol::PeelableResult<T>> {
         let mut peeled_symbols = Vec::new();
         loop {
@@ -173,10 +221,18 @@ where
         }
         peeled_symbols
     }
+    /// Add a coded symbol
+    /// The expected use is that a remote server is streaming us codedSymbols and we are adding them to our local copy.
     pub fn add_coded_symbol(&mut self, other: &symbol::CodedSymbol<T>) {
         self.coded_symbols.push(other.clone());
     }
+
+    /// returns true if there are no symbols
+    /// If we can't peel any symbols, but it is not empty it means that we have symbols that
+    /// can't be recovered
+    /// If there are no CodedSymbols, this will return true
     pub fn is_empty(&self) -> bool {
+        //It might be good to panic if there are no coded symbols
         is_empty(&self.coded_symbols)
     }
 }
