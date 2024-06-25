@@ -52,6 +52,7 @@ where
         }
 
         // we should generate at minimum the BLOCK_SIZE number of coded symbols
+        // Aternatively, we could always generate up to the index + the block size
         let extend_until = usize::max(index + 1, current_len + BLOCK_SIZE);
 
         for _ in current_len..extend_until {
@@ -93,7 +94,6 @@ where
             coded_symbols: Vec::new(),
             set_iterator,
         };
-        riblt.extend_coded_symbols(0);
         riblt
     }
 

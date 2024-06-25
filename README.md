@@ -4,7 +4,15 @@ The aim of this Rust Crate is to allow efficient set reconciliation over a netwo
 
 This crate is based on the paper titled 'Practical Rateless Set Reconciliation' authored by Lei Yang, Yossi Gilad, Mohammad Alizadeh.
 
-https://arxiv.org/html/2402.02668v2
+https://arxiv.org/abs/2402.02668
+
+The crate is published to crates.io here:
+
+https://crates.io/crates/riblt
+
+Docs are published here:
+
+https://docs.rs/riblt/latest/riblt/
 
 This crate does not require a particular 'set' implementation, it only requires that the set is iterable. 
 This allows the user to use any set implementation that is appropriate for their use-case, including a set read from disk.
@@ -41,6 +49,7 @@ See the UnmanagedRatelessIBLT struct for more information.
 
 As described by the birthday paradox, the probability of a hash collision is 50% when the number of items in the set is equal to the square root of the possible outcomes. We are using 64-bit hashes, so we should be expecting hash collisions when we are around 4 billion items.
 
+For sets that approach 4 billion items/symbols will require a larger hash.
 
 ## General challenges for very large sets
 
@@ -84,6 +93,15 @@ The repair mechanism would also handle cases of a network partition. Rateless IB
 There is currently no use of async or multi-threading in this crate. I will test the performance gains in the future.
 
 This is considered a lower priority, as I am anticipating this will be used on a server that is performing other tasks.
+
+### Performance
+
+I have not yet done any profiling, but I plan to do so.
+
+### Change Symbol to not use Vec
+
+To better support SIMD operations, I am planning to change the Symbol trait to set the type of the encoded data.
+It will be an array (rather than a Vec) of u8.
 
 ## Notes
 

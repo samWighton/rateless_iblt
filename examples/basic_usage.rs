@@ -1,4 +1,5 @@
 use std::hash::{DefaultHasher, Hash, Hasher};
+use std::time::Instant;
 use bincode;
 use riblt;
 
@@ -87,12 +88,41 @@ fn main() {
     }
 
 
-    // for i in 0..10_000 {
-    //     local_items.insert(SimpleSymbol {
-    //         unique_id: i,
-    //         timestamp: 0,
-    //     });
-    // }
+
+
+    let mut test_items: HashSet<SimpleSymbol> = HashSet::new();
+    for i in 0..10_000_000 {
+        test_items.insert(SimpleSymbol {
+            unique_id: i,
+            timestamp: 0,
+        });
+    }
+    let start = Instant::now();
+    let mut test_riblt = riblt::RatelessIBLT::new(test_items);
+    let coded_symbols_to_get = 10_000_000;
+    let coded_symbol = test_riblt.get_coded_symbol(coded_symbols_to_get);
+    let duration = start.elapsed();
+
+    let encoded_coded_symbol = bincode::serialize(&coded_symbol).unwrap();
+    let encoded_length = encoded_coded_symbol.len();
+    println!("encoded CodedSymbol length {:?}", encoded_length);
+    println!("encoding bandwidth {:?} Mb/s", coded_symbols_to_get as f64 * 8.0 * encoded_length as f64 / duration.as_secs_f64() / 1_000_000.0);
+
+    println!("Time building codedSymbols is: {:?}", duration);
+
+    // The time to produce 1,000,000 coded symbols (40 bytes each) from a set of 10,000,000 symbols is about 20 seconds
+    // on my machine.
+    //
+    // This gives a 17 Mb/s encoding bandwidth.
+    //
+    // Encoding 10x more CodedSymbols takes about 34 seconds, which is a 98 Mb/s encoding bandwidth.
+    //
+    // This scales linearly with the number of symbols in the set.
+    //
+    // Next up is to test the decoding bandwidth of a collapsed RIBLT.
+    //
+    // overall this is looking quite positive, as we can encoded about as fast as we could get data
+    // off a disk. And decoding should remain proportional to the differences in the sets.
 
     // let local_coded_symbol_block = riblt::produce_block(local_items, 0);
     // let remote_coded_symbol_block = riblt::produce_block(remote_items, 0);

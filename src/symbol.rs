@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::marker::PhantomData;
+// use std::simd::{u8x16, Simd};
 
 /// A symbol is an item in the set
 pub trait Symbol: Clone + Debug {
@@ -94,13 +95,19 @@ impl<T: Symbol> CodedSymbol<T> {
             "encoded_s must have the length specified by T::BYTE_ARRAY_LENGTH."
         );
 
+
+
+
+        // xor_simd(&mut self.sum, &encoded_s);
+
         // Should be able to update in place here
-        self.sum = self
-            .sum
-            .iter()
-            .zip(encoded_s.iter())
-            .map(|(x, y)| x ^ y)
-            .collect();
+        self.sum.iter_mut().zip(encoded_s.iter()).for_each(|(x, y)| *x ^= y);
+        // self.sum = self
+        //     .sum
+        //     .iter()
+        //     .zip(encoded_s.iter())
+        //     .map(|(x, y)| x ^ y)
+        //     .collect();
 
         self.hash ^= s.hash_();
         match direction {
@@ -272,3 +279,21 @@ mod tests {
         }
     }
 }
+
+// fn xor_simd(a: &mut [u8], b: &[u8]) {
+//     let chunks_a = a.chunks_exact_mut(16);
+//     let chunks_b = b.chunks_exact(16);
+//     let remainder_a = chunks_a.remainder();
+//     let remainder_b = chunks_b.remainder();
+// 
+//     for (chunk_a, chunk_b) in chunks_a.zip(chunks_b) {
+//         let a_simd = u8x16::from_slice(chunk_a);
+//         let b_simd = u8x16::from_slice(chunk_b);
+//         let result = a_simd ^ b_simd;
+//         result.write_to_slice(chunk_a);
+//     }
+// 
+//     for (x, &y) in remainder_a.iter_mut().zip(remainder_b.iter()) {
+//         *x ^= y;
+//     }
+// }
